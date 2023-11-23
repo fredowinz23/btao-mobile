@@ -1,17 +1,9 @@
 package com.capstone.btao
 
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.app.ProgressDialog
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
 import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Message
 import android.util.Log
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -25,14 +17,9 @@ import com.capstone.btao.request.AddPenaltyItemRequest
 import com.capstone.btao.request.RemovePenaltyItemRequest
 import com.capstone.btao.request.ViolationFormRequest
 import com.capstone.btao.simpleprinter.PrintViolationActivity
-import com.capstone.btao.simpleprinter.SimpleMainActivity
-import com.fredoware.pacitapos.simpleprinter.PrinterCommands
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import java.io.IOException
-import java.io.OutputStream
-import java.util.UUID
 
 class ViolationFormActivity : AppCompatActivity() {
     private lateinit var binding: ActivityViolationFormBinding
@@ -56,11 +43,7 @@ class ViolationFormActivity : AppCompatActivity() {
             val intent = Intent(this, PrintViolationActivity::class.java)
             intent.putExtra("driverPenaltyId", driverPenaltyId)
             startActivity(intent)
-        }
 
-        binding.btnTestPrint.setOnClickListener {
-            val intent = Intent(this, SimpleMainActivity::class.java)
-            startActivity(intent)
         }
     }
 

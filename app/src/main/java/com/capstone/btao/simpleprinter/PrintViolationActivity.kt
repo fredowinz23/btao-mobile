@@ -6,15 +6,22 @@ import android.app.ProgressDialog
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Message
 import android.util.Log
+import android.view.View
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.widget.AppCompatButton
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.capstone.btao.PenaltyItemAdapter
 import com.capstone.btao.api.ApiInterface
 import com.capstone.btao.api.RetrofitClient
 import com.capstone.btao.databinding.ActivitySmMainBinding
+import com.capstone.btao.models.PenaltyItem
 import com.capstone.btao.request.ViolationFormRequest
 import com.fredoware.pacitapos.simpleprinter.PrinterCommands
 import retrofit2.Call
@@ -22,6 +29,8 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.io.IOException
 import java.io.OutputStream
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @SuppressLint("MissingPermission")
@@ -45,7 +54,6 @@ class PrintViolationActivity() : Activity(), Runnable {
     val bluetoothString = "86:67:7A:FA:A7:E0"
 
 
-
     var driverPenaltyId = 0
 
     lateinit var binding: ActivitySmMainBinding
@@ -61,9 +69,17 @@ class PrintViolationActivity() : Activity(), Runnable {
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
+        binding.mPrint.visibility = View.GONE
+
+        binding.ivBack.setOnClickListener {
+            finish()
+        }
+
     } // onCreate
 
-    private fun getViolationForm(driverPenaltyId: Int?) {
+    fun getViolationForm(driverPenaltyId: Int?) {
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+
         val retrofit = RetrofitClient.getInstance(this)
         val retrofitAPI = retrofit.create(ApiInterface::class.java)
 
@@ -72,6 +88,7 @@ class PrintViolationActivity() : Activity(), Runnable {
         val call = retrofitAPI.getViolationForm(dataRequest)
 
         call.enqueue(object : Callback<ViolationFormRequest?> {
+            @RequiresApi(Build.VERSION_CODES.O)
             override fun onResponse(call: Call<ViolationFormRequest?>, response: Response<ViolationFormRequest?>) {
 
                 // we are getting response from our body
@@ -81,30 +98,41 @@ class PrintViolationActivity() : Activity(), Runnable {
                 val driver = responseFromAPI?.driver
                 val penalty_item_list = responseFromAPI?.penalty_item_list
 
+                val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                val current = LocalDateTime.now().format(formatter)
+
                 binding.mPrint.setOnClickListener{
 
                     isChangingName = false
                     isTestingPrinter = true
 
                     var bill = ""
-                    bill += "${driver!!.firstName} ${driver.middleInitial}. ${driver.lastName} \n"
-                    bill += "3 x 299 \t \t 299.50 \n"
-                    bill += "\n"
-                    bill += "Spicy Chicken and some drings \n"
-                    bill += "3 x 299 \t \t 299.50 \n"
-                    bill += "\n"
-                    bill += "Spicy Chicken and some drings \n"
-                    bill += "3 x 299 \t \t 299.50 \n"
-                    bill += "\n"
-                    bill += "Spicy Chicken and some drings \n"
-                    bill += "3 x 299 \t \t 299.50 \n"
-                    bill += "\n"
-                    bill += "Spicy Chicken and some drings \n"
-                    bill += "3 x 299 \t \t 299.50 \n"
-                    bill += "\n"
+                    bill += "BTAO: \n"
+                    bill += "Name: ${driver!!.firstName} ${driver.middleInitial}. ${driver.lastName} \n"
+                    bill += "License Number: ${driver.licenseNumber} \n"
+                    bill += "Plate Number: ${driver.plateNumber} \n"
+                    bill += "Address: ${driver.address} \n"
+                    bill += "Color/Brand/Model: ${driver.color}/${driver.brand}/${driver.model} \n"
+                    bill += "-------------------------------- \n"
+                    bill += "-------------------------------- \n"
+                    bill += "Penalties: \n\n"
+
+                    for (item in penalty_item_list!!){
+                        bill += "* ${item.violation!!.name} \n"
+                    }
+
+                    bill += "\n\n\n Date: $current \n"
+                    bill += "-------------------------------- \n"
+                    bill += "Team BES, All rights reserved. \n\n\n\n\n\n\n\n"
+
                     printingProcess(bill, bluetoothString)
 
                 }
+
+
+                binding.mPrint.visibility = View.VISIBLE
+
+                attachPenaltyItemList(penalty_item_list)
 
             }
 
@@ -116,6 +144,13 @@ class PrintViolationActivity() : Activity(), Runnable {
                 Log.e("Login Error", t.message.toString())
             }
         })
+    }
+
+    private fun attachPenaltyItemList(penaltyItemList: List<PenaltyItem>?) {
+        val groupLinear = LinearLayoutManager(this@PrintViolationActivity)
+        binding.rvOptionList.layoutManager = groupLinear
+        val adapter = PenaltyItemAdapter(this@PrintViolationActivity, penaltyItemList!!)
+        binding.rvOptionList.adapter = adapter
     }
 
 
