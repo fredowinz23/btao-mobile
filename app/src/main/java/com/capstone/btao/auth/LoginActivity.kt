@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
+import com.capstone.btao.MainActivity
 import com.capstone.btao.MainActivity2
 import com.capstone.btao.api.UserSession
 import com.capstone.btao.api.ApiInterface
@@ -76,7 +77,7 @@ class LoginActivity : AppCompatActivity() {
                     val userSession = UserSession(this@LoginActivity)
                     userSession.edit?.putString("username", responseFromAPI?.profile?.username)
                     userSession.edit?.apply()
-                    startActivity(Intent(this@LoginActivity, MainActivity2::class.java))
+                    startActivity(Intent(this@LoginActivity, MainActivity::class.java))
                     finish()
                 }
                 else{

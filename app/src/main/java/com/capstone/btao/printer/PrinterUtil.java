@@ -21,7 +21,6 @@ import java.util.UUID;
 
 public class PrinterUtil {
     private static final String TAG = "PRINTAMA";
-
     private static final int PRINTER_WIDTH = 384;
     private static final int INITIAL_MARGIN_LEFT = -4;
     private static final int BIT_WIDTH = 384;

@@ -8,17 +8,18 @@
     android:foreground="?android:attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true"
+    android:id="@+id/cvItem"
     android:backgroundTint="@color/Sub"
     app:cardElevation="3dp">
 
     <LinearLayout
-        android:id="@+id/llItem"
         android:layout_margin="10dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
         <TextView
+            android:id="@+id/tvName"
             android:text="Violation option "
             android:textColor="@color/white"
             android:layout_width="match_parent"

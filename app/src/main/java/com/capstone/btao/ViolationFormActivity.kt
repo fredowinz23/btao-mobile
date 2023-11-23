@@ -1,42 +1,46 @@
 package com.capstone.btao
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.ProgressDialog
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
-import androidx.appcompat.app.AppCompatActivity
+import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Message
 import android.util.Log
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.capstone.btao.api.ApiInterface
+import com.capstone.btao.api.RetrofitClient
 import com.capstone.btao.databinding.ActivityViolationFormBinding
+import com.capstone.btao.models.Driver
+import com.capstone.btao.models.PenaltyItem
+import com.capstone.btao.models.Violation
+import com.capstone.btao.request.AddPenaltyItemRequest
+import com.capstone.btao.request.RemovePenaltyItemRequest
+import com.capstone.btao.request.ViolationFormRequest
+import com.capstone.btao.simpleprinter.PrintViolationActivity
+import com.capstone.btao.simpleprinter.SimpleMainActivity
 import com.fredoware.pacitapos.simpleprinter.PrinterCommands
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.io.IOException
 import java.io.OutputStream
 import java.util.UUID
 
 class ViolationFormActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityViolationFormBinding
+    var driverPenaltyId = 0
 
-    // For Printing
-    protected val TAG = "TAG"
-    protected val REQUEST_CONNECT_DEVICE = 1
-    protected val REQUEST_ENABLE_BT = 2
-    protected val BT_ON = 3
+    var driver: Driver? = null
+    var penalty_item_list: List<PenaltyItem>? = null
 
-    protected var mBluetoothAdapter: BluetoothAdapter? = null
-    protected var applicationUUID = UUID
-        .fromString("00001101-0000-1000-8000-00805F9B34FB")
-    protected var mBluetoothConnectProgressDialog: ProgressDialog? = null
-    protected var mBluetoothSocket: BluetoothSocket? = null
-    protected var mBluetoothDevice: BluetoothDevice? = null
-    protected var outputStream: OutputStream? = null
-    var BILL = ""
-//    protected var printerName: String? = "JP58H-BT71_7EB1"
-    protected var isChangingName = false
-    protected var isTestingPrinter = false
-    val bluetoothString = "86:67:7A:FA:A7:EO"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,119 +49,126 @@ class ViolationFormActivity : AppCompatActivity() {
         setContentView(binding.root)
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
 
+        driverPenaltyId = intent.extras?.getInt("driverPenaltyId", 0)!!
+        getViolationForm(driverPenaltyId)
+
         binding.btnPrint.setOnClickListener {
-            printReceipt()
+            val intent = Intent(this, PrintViolationActivity::class.java)
+            intent.putExtra("driverPenaltyId", driverPenaltyId)
+            startActivity(intent)
         }
 
-    }
-
-    private fun printReceipt() {
-        val centerLine = "--------------------------------\n"
-
-        var receipt = "\n\nWINGSXPRESS,\n"
-        receipt += "SIZZLING HUB,\n\n"
-        receipt += "Jasmin St Corner San Sebastian,\n"
-        receipt += "Brgy 32, Bacolod City\n\n"
-        receipt += centerLine
-
-        printingProcess(receipt, bluetoothString)
-    }
-
-    fun printingProcess(BILL: String, name: String?) {
-        mBluetoothDevice = mBluetoothAdapter!!.getRemoteDevice(name)
-        try {
-            mBluetoothSocket = mBluetoothDevice!!.createRfcommSocketToServiceRecord(applicationUUID)
-            mBluetoothSocket!!.connect()
-        } catch (eConnectException: IOException) {
-            Toast.makeText(
-                this@ViolationFormActivity,
-                "The printer is not available. Check if it is on",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-        object : Thread() {
-            override fun run() {
-                try { //outputStream
-                    outputStream = mBluetoothSocket!!.outputStream
-                    if (isTestingPrinter) {
-                        //invoice details
-                        printConfig(BILL, 2, 1, 0) //align 1=center
-                        printNewLine()
-                    }
-                    closeSocket(mBluetoothSocket) //close the connection
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Exe ", e)
-                }
-            }
-        }.start()
-    }
-
-    protected fun closeSocket(nOpenSocket: BluetoothSocket?) {
-        try {
-            nOpenSocket!!.close()
-            Log.d(TAG, "SocketClosed")
-        } catch (ex: IOException) {
-            Log.d(TAG, "CouldNotCloseSocket")
+        binding.btnTestPrint.setOnClickListener {
+            val intent = Intent(this, SimpleMainActivity::class.java)
+            startActivity(intent)
         }
     }
 
-    protected fun printConfig(bill: String, size: Int, style: Int, align: Int) {
-        //size 1 = large, size 2 = medium, size 3 = small
-        //style 1 = Regular, style 2 = Bold
-        //align 0 = left, align 1 = center, align 2 = right
-        try {
-            val format = byteArrayOf(27, 33, 0)
-            val change = byteArrayOf(27, 33, 0)
-            outputStream!!.write(format)
+    private fun getViolationForm(driverPenaltyId: Int?) {
+        val retrofit = RetrofitClient.getInstance(this)
+        val retrofitAPI = retrofit.create(ApiInterface::class.java)
 
-            //different sizes, same style Regular
-            if (size == 1 && style == 1) //large
-            {
-                change[2] = 0x10.toByte() //large
-                outputStream!!.write(change)
-            } else if (size == 2 && style == 1) //medium
-            {
-                //nothing to change, uses the default settings
-            } else if (size == 3 && style == 1) //small
-            {
-                change[2] = 0x3.toByte() //small
-                outputStream!!.write(change)
+        //Access api/violation-form.php
+        val dataRequest = ViolationFormRequest(driverPenaltyId!!)
+        val call = retrofitAPI.getViolationForm(dataRequest)
+
+        call.enqueue(object : Callback<ViolationFormRequest?> {
+            override fun onResponse(call: Call<ViolationFormRequest?>, response: Response<ViolationFormRequest?>) {
+
+                // we are getting response from our body
+                // and passing it to our modal class.
+                val responseFromAPI: ViolationFormRequest? = response.body()
+
+                driver = responseFromAPI?.driver
+                val violation_list = responseFromAPI?.violation_list
+                penalty_item_list = responseFromAPI?.penalty_item_list
+                driverInformation(driver)
+                attachViolationList(violation_list)
+                attachPenaltyItemList(penalty_item_list)
+
+
             }
 
-            //different sizes, same style Bold
-            if (size == 1 && style == 2) //large
-            {
-                change[2] = (0x10 or 0x8).toByte() //large
-                outputStream!!.write(change)
-            } else if (size == 2 && style == 2) //medium
-            {
-                change[2] = 0x8.toByte()
-                outputStream!!.write(change)
-            } else if (size == 3 && style == 2) //small
-            {
-                change[2] = (0x3 or 0x8).toByte() //small
-                outputStream!!.write(change)
+            override fun onFailure(call: Call<ViolationFormRequest?>, t: Throwable) {
+                // setting text to our text view when
+                // we get error response from API.
+
+
+                Log.e("Login Error", t.message.toString())
             }
-            when (align) {
-                0 ->                     //left align
-                    outputStream!!.write(PrinterCommands.ESC_ALIGN_LEFT)
-                1 ->                     //center align
-                    outputStream!!.write(PrinterCommands.ESC_ALIGN_CENTER)
-                2 ->                     //right align
-                    outputStream!!.write(PrinterCommands.ESC_ALIGN_RIGHT)
-            }
-            outputStream!!.write(bill.toByteArray())
-        } catch (ex: Exception) {
-            Log.e("error", ex.toString())
-        }
+        })
     }
 
-    protected fun printNewLine() {
-        try {
-            outputStream!!.write(PrinterCommands.FEED_LINE)
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
+    private fun attachPenaltyItemList(penaltyItemList: List<PenaltyItem>?) {
+        val groupLinear = LinearLayoutManager(this@ViolationFormActivity)
+        binding.rvPenaltyItemList.layoutManager = groupLinear
+        val adapter = PenaltyItemAdapter(this@ViolationFormActivity, penaltyItemList!!)
+        binding.rvPenaltyItemList.adapter = adapter
     }
+
+    private fun attachViolationList(violationList: List<Violation>?) {
+        val groupLinear = LinearLayoutManager(this@ViolationFormActivity)
+        binding.rvOptionList.layoutManager = groupLinear
+        val adapter = ViolationAdapter(this@ViolationFormActivity, violationList!!)
+        binding.rvOptionList.adapter = adapter
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun driverInformation(driver: Driver?) {
+        binding.tvName.text = "${driver!!.firstName} ${driver.middleInitial}. ${driver.lastName}"
+        binding.tvLicenseNumber.text = driver.licenseNumber
+        binding.tvPlateNumber.text = driver.plateNumber
+        binding.tvAddress.text = driver.address
+        binding.tvColorBrandModel.text = "${driver.color} ${driver.brand}. ${driver.model}"
+    }
+
+    fun addToPenaltyItem(violationId: Int) {
+        val retrofit = RetrofitClient.getInstance(this)
+        val retrofitAPI = retrofit.create(ApiInterface::class.java)
+
+        //Access api/violation-form.php
+        val dataRequest = AddPenaltyItemRequest(violationId, driverPenaltyId)
+        val call = retrofitAPI.addPenaltyItem(dataRequest)
+
+        call.enqueue(object : Callback<AddPenaltyItemRequest?> {
+            override fun onResponse(call: Call<AddPenaltyItemRequest?>, response: Response<AddPenaltyItemRequest?>) {
+
+                getViolationForm(driverPenaltyId)
+
+            }
+
+            override fun onFailure(call: Call<AddPenaltyItemRequest?>, t: Throwable) {
+                // setting text to our text view when
+                // we get error response from API.
+
+                Log.e("Login Error", t.message.toString())
+            }
+        })
+    }
+
+    fun removePenaltyItem(itemId: Int) {
+        val retrofit = RetrofitClient.getInstance(this)
+        val retrofitAPI = retrofit.create(ApiInterface::class.java)
+
+        //Access api/violation-form.php
+        val dataRequest = RemovePenaltyItemRequest(itemId)
+        val call = retrofitAPI.removePenaltyItem(dataRequest)
+
+        call.enqueue(object : Callback<RemovePenaltyItemRequest?> {
+            override fun onResponse(call: Call<RemovePenaltyItemRequest?>, response: Response<RemovePenaltyItemRequest?>) {
+
+                getViolationForm(driverPenaltyId)
+
+            }
+
+            override fun onFailure(call: Call<RemovePenaltyItemRequest?>, t: Throwable) {
+                // setting text to our text view when
+                // we get error response from API.
+
+                Log.e("Login Error", t.message.toString())
+            }
+        })
+    }
+
 
 }

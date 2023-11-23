@@ -18,13 +18,13 @@ class SplashScreenActivity : AppCompatActivity() {
 
         val userSession = UserSession(this)
         Handler(Looper.getMainLooper()).postDelayed({
-//            if (userSession.username.isNullOrBlank()){
-//                startActivity(Intent(this@SplashScreenActivity, LoginActivity::class.java))
-//            }
-//            else{
-//                startActivity(Intent(this@SplashScreenActivity, MainActivity::class.java))
-//            }
-            startActivity(Intent(this@SplashScreenActivity, SimpleMainActivity::class.java))
+            if (userSession.username.isNullOrBlank()){
+                startActivity(Intent(this@SplashScreenActivity, LoginActivity::class.java))
+            }
+            else{
+                startActivity(Intent(this@SplashScreenActivity, MainActivity::class.java))
+            }
+//            startActivity(Intent(this@SplashScreenActivity, SimpleMainActivity::class.java))
             finish()
         }, 2000)
     }

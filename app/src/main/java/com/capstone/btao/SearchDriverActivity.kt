@@ -107,7 +107,7 @@ class SearchDriverActivity : AppCompatActivity() {
 
                 val driverPenaltyId = responseFromAPI?.driverPenaltyId!!
                 val intent = Intent(this@SearchDriverActivity, ViolationFormActivity::class.java)
-                intent.putExtra("driverPenaltyId", driverPenaltyId)
+                intent.putExtra("driverPenaltyId",driverPenaltyId )
                 startActivity(intent)
 
             }
